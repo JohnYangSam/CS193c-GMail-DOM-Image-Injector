@@ -53,7 +53,7 @@
  * There are a lot of weird timers and hacked looking syntax in this code. This was our
  * attempt to get around Chrome's race conditions and some odd load timing issues when
  * grabbing iframes within the DOM
- * 
+ *
  */
 /* JavaScript */
 /* Correct JLint for the browser and Google libraries */
@@ -61,22 +61,16 @@
 /*global getElementById: true, chrome: true, Gmailr: true, $: true, top: true*/
 
 Gmailr.debug = true; // Turn verbose debugging messages on 
-var hasInjected = false;
-var lastFragment = "";
-var composeBoxBackup;
 
-var timeoutID;
-
-var injectPic = function () {
+Gmailr.init(function (G) {
 	'use strict';
-	try {
-		console.log("prepping to inject picture");
-		if (hasInjected) {
-			return; //Return if the image has been injected
-		}
-		var overArchingDocument = top.document.getElementsByTagName("iframe")[4].contentDocument;
-		var composeBoxDocument = overArchingDocument.getElementsByTagName("iframe")[0].contentDocument;
-		var composeBoxBody = composeBoxDocument.getElementsByTagName("body")[0];
+	//Set up the top bar
+	G.insertCss(getData('css_path'));
+	G.insertTop($("<div id='gmailr'><span>CS193c Experiment Status:</span> <span id='status'>Loaded.</span> </div>"));
+
+	//Takes in a target iframe
+	var insertElementOnIframeBody = function (iframe) {
+		var contentBody = iframe.contents().find('body');
 
 		var elem = document.createElement("h1");
 		elem.innerHTML = "JOHN JUST BEASTED GMAIL!!!";
@@ -85,187 +79,32 @@ var injectPic = function () {
 		var img = document.createElement("img");
 		img.setAttribute("src", "http://i2.kym-cdn.com/entries/icons/original/000/011/065/YES%20MEME.JPG");
 		img.setAttribute("alt", "http://i2.kym-cdn.com/entries/icons/original/000/011/065/YES%20MEME.JPG");
-		console.log(elem);
 
-		console.log("random");
-		console.log(composeBoxBody);
-		composeBoxBody.appendChild(elem);
-		composeBoxBody.appendChild(img);
-		console.log("-----picture injected-----");
-	} catch (exeception) {
-		hasInjected = false;
-		console.log("Error injecting picture");
-		return;
+		contentBody.append(elem);
+		contentBody.append(img);
 	}
+
+	/* CASE 2)
+	 * Takes care of the move to compose box through a fragment (#)
+	 * Get the class 'cO' frame (and the the contents) with JQuery, bind to the document (i.e. put a
+	 * handler) for a DOMInserted event that will take the event target and check its classes. If the
+	 * classes match those of the compose box iframe, then pause (to fix loading issues) and call the
+	 * insertElementOnIframeBody on the iframe
+	 */
+	$('.cO').contents().bind('DOMNodeInserted', function (event) {
+		var tar = $(event.target);
+		if(tar.hasClass("Am") && tar.hasClass("Al") && tar.hasClass("editable")) {
+			setTimeout(insertElementOnIframeBody, 200, tar);
+		}
+	});
+
+	/* CASE 1)
+	 * Takes care of the case of if you go directly to the page (because the node is no longer inserted
+	 * instead it is just loaded.
+	 */
+	var tar = $('.cO').contents().find('.Am.Al.editable');
+	setTimeout(insertElementOnIframeBody, 200, tar);
 	
-	hasInjected = true; //To say that an injection has been made
-};
-
-/* DEPRECATED: "Unsafe because no null checks
-var attemptToAddComposeBoxListenerUnSafe = function () {
-	'use strict';
-	if(!isOnNewFragment() || !isOnComposePage()) return; //Execute only if are on a compose page and on a new page
-	var overArchingDocument = top.document.getElementsByTagName("iframe")[4].contentDocument;
-	var composeBoxDocument = overArchingDocument.getElementsByTagName("iframe")[0].contentDocument;
-	var composeBoxBody = composeBoxDocument.getElementsByTagName("body")[0];
-	composeBoxBody.addEventListener("focus", injectPic, false);
-	console.log("*****addEventListener to compose box)*****");
-	hasInjected = false;
-};
-*/
-
-
-/*
- * Checks the current fragment identifier of the page and compares it to the last
- * fragment identifier global variable. It also checks that the compose box is loaded.
- * The function returns true if both of these are true and updates the lastFragment
- * with the curr fragment if they are different or returns false if they are the same.
- */
-var isOnNewFragmentAndLoaded = function () {
-	'use strict';
-	console.log("isOnNewFragment called");
-	var currFragment = window.location.hash;
-	if (currFragment !== lastFragment) {
-	    console.log("on new page");
-		lastFragment = currFragment;
-	    return true;
-	}
-	console.log("on same page");
-	return false;
-};
-
-/*
- * Returns true if the fragment identifier (i.e. hash) of the page is equal
- * to "#compose" and returns false otherwise
- */
-var isOnComposePage = function () {
-	'use strict';
-	console.log("isOnComposePage called");
-	console.log("Checking window Fragment Identifier (i.e. hash)");
-	console.log(window.location.hash);
-	if (window.location.hash === "#compose") {
-		console.log("=== '#compose'");
-		return true;
-	} else {
-		console.log("!== '#compose'");
-		return false;
-	}
-};
-
-/* Returns compose box or null if it does not exist */
-var getComposeBoxBody = function () {
-	'use strict';
-	var composeBoxBody;
-	try {
-		var iframeArray = top.document.getElementsByTagName("iframe");
-		if (iframeArray.length === 0) {
-			return null;
-		}
-		
-		var iframe = iframeArray[4];
-		if ((typeof iframe === "undefined") || iframe === null || iframe.src !== "https://mail.google.com/mail/u/0/?ui=2&view=bsp&ver=ohhl4rw8mbn4") {
-			return null;
-		}
-		var overArchDoc = iframe.contentDocument;
-
-		var innerIframeArray = overArchDoc.getElementsByTagName("iframe");
-		if (innerIframeArray.length === 0) {
-			return null;
-		}
-		
-		
-		var innerIframe = innerIframeArray[0];
-		if ((typeof innerIframe === "undefined") || innerIframe === null) {
-			return null;
-		}
-	//	if (innerIframe.src !== "https://plus.google.com/u/0/_/notifications/frame?sourceid=23&hl=en&origin=https%3A%2F%2Fmail.google.com&jsh=m%3B%2F_%2Fabc-static%2F_%2Fjs%2Fgapi%2F__features__%2Frt%3Dj%2Fver%3Dpeyma3SryPk.en.%2Fsv%3D1%2Fam%3D!SQxz7F5VozeZ9_TH8Q%2Fd%3D1#pid=23&id=gbsf&parent=https%3A%2F%2Fmail.google.com&rpctoken=226823785&_methods=onError%2ConInfo%2ChideNotificationWidget%2CpostSharedMessage%2CsetNotificationWidgetHeight%2CswitchTo%2CnavigateTo%2CgetNotificationText%2CsetNotificationText%2CsetNotificationAnimation%2ChandlePosted%2C_ready%2C_close%2C_open%2C_resizeMe%2C_renderstart") return null;
-	//	if ( innerIframe.src.substring(0,24) !== "https://plus.google.com/") {
-	//		console.log("------<> Caught <>-------");
-	//		return null;
-	//	}
-		
-		var contentDoc = innerIframe.contentDocument;
-
-		console.log("innerIframeDOCUMENT: ");
-		console.log(innerIframe.contentDocument.document);
-
-		if ((typeof contentDoc === "undefined") || contentDoc === null) {
-			return null;
-		}
-
-		var composeBoxBodyArr = contentDoc.getElementsByTagName("body");
-		if (composeBoxBodyArr.length === 0) {
-			return null;
-		}
-		
-		composeBoxBody = composeBoxBodyArr[0];
-	} catch (exception) {
-		console.log("Caught exception while looking for compose box");
-		return null;
-	}
-	
-	return composeBoxBody;
-};
-
-
-var attemptToAddComposeBoxListener = function () {
-	'use strict';
-	try {
-		console.log("*****addEventListener to compose box)*****");
-		hasInjected = false; //Let the 
-		var composeBoxBody = getComposeBoxBody();
-		composeBoxBody.addEventListener("focus", injectPic, false);
-		composeBoxBody.style.color = "red";
-
-		//Testing caching the global var here		
-		composeBoxBackup = composeBoxBody;
-	} catch (exception) {
-		console.log("Exception caught trying to add listener to compose box");
-		lastFragment = lastFragment + "i";
-		return;
-	}
-};
-
-var test = function () {
-	'use strict';
-	var iframeArray = top.document.getElementsByTagName("iframe");
-	if (iframeArray.length === 0) {
-		return null;
-	}
-	
-	var iframe = iframeArray[4];
-	if ((typeof iframe === "undefined") || iframe === null || iframe.src !== "https://mail.google.com/mail/u/0/?ui=2&view=bsp&ver=ohhl4rw8mbn4") {
-		return null;
-	}
-
-	var overArchDoc = iframe.contentDocument;
-	
-	var innerIframeArray = overArchDoc.getElementsByTagName("iframe");
-	if (innerIframeArray.length === 0) {
-		return null;
-	}
-	
-	var innerIframe = innerIframeArray[0];
-	console.log(innerIframe.src);
-};
-
-/*
- * Checks conditions then sets the handler with a timeout delay 
- */
-var checkIfAddConditionsAndDeleay = function () {
-	'use strict';
-	if (!isOnNewFragmentAndLoaded() || !isOnComposePage()) {
-		return; //Execute only if are on a compose page and on a new page
-	}
-	setTimeout(attemptToAddComposeBoxListener, 500);
-};
-
-Gmailr.init(function (G) {
-	'use strict';
-    G.insertCss(getData('css_path'));
-	G.insertTop($("<div id='gmailr'><span>CS193c Experiment Status:</span> <span id='status'>Loaded.</span> </div>"));
-	setInterval(checkIfAddConditionsAndDeleay, 20);
-	//setInterval(test, 100);
 	var status = function (msg) {
         G.$('#gmailr #status').html(msg);
     };

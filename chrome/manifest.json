@@ -1,6 +1,6 @@
 {
   "name": "CS193C Experiment",
-  "version": "0.2",
+  "version": "0.3",
   "description": "An experimental extension playing with Gmail DOM image injection",
   "content_scripts": [
     {
