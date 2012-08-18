@@ -6,7 +6,7 @@
 		<title>README</title>
 	</head>
 	<body>
-		<p>AAn experimental Chrome extension for CS193c. This extension will grab
+		<p>An experimental Chrome extension for CS193c. This extension will grab
 		the compose box when you are in Gmail and will automatically inject some
 		text and image (easily changeable in the source) into the frame.
 
